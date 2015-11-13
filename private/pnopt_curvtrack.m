@@ -17,7 +17,12 @@ function varargout = pnopt_curvtrack( x, d, t, f_old, grad_g_x_d, smoothF, nonsm
     iter = iter + 1;
     
     % Evaluate trial point and function value.
-    [ h_y, y ]  = nonsmoothF( x + t * d, t );
+    [ h_y, y ]  = nonsmoothF{1}( x + t * d, t );
+     h_y = 0;
+    for i = 1:length(nonsmoothF)
+      h_y = h_y + nonsmoothF{i}(x + t * d);
+    end
+
     if nargout > 6
       [ g_y, grad_g_y, hess_g_y ] = smoothF( y );
     else

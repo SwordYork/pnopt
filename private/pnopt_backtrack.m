@@ -13,7 +13,10 @@ function varargout = pnopt_backtrack( x, d, t, f_x, h_x, grad_g_x_d, smoothF, ..
 
   iter = 0;
   
-  desc = grad_g_x_d + nonsmoothF( x + d ) - h_x;
+  desc = grad_g_x_d - h_x;
+  for i = 1:length(nonsmoothF)
+    desc = desc + nonsmoothF{i}(x + d);
+  end
   
   % --------------------Main Loop--------------------
   while 1
@@ -26,7 +29,11 @@ function varargout = pnopt_backtrack( x, d, t, f_x, h_x, grad_g_x_d, smoothF, ..
     else
       [ g_y, grad_g_y ] = smoothF( y );
     end
-    h_y = nonsmoothF( y );
+    h_y = 0;
+    for i = 1:length(nonsmoothF)
+      h_y = h_y + nonsmoothF{i}(y);
+    end
+
     f_y = g_y + h_y;
     
     % Check termination criteria

@@ -1,4 +1,4 @@
-function [ x, f, output ] = pnopt( smoothF, nonsmoothF, x, options )
+function [ x, f, output ] = pnopt(smoothF, affineF, dualproxF, x, z0, nonsmoothF, rho, options )
 % pnopt : Proximal Newton-type methods
 % 
 % [ x, f, output ] = pnopt( smoothF, nonsmoothF, x ) starts at x and seeks a 
@@ -12,99 +12,58 @@ function [ x, f, output ] = pnopt( smoothF, nonsmoothF, x, options )
 %   pnopt_optimset function.
 % 
 %   $Revision: 0.8.0 $  $Date: 2012/12/01 $
- 
+
 % ============ Process options ============
-  
-  sparsa_options = pnopt_optimset(...
-    'display'       , 0    ,...
-    'max_fun_evals' , 5000 ,...
-    'max_iter'      , 500   ...
-    );
-  
-  tfocs_opts = struct(...
-    'alg'        , 'N83' ,...
-    'errFcn'     , @(f,x) tfocs_err() ,...
-    'maxIts'     , 500   ,...
-    'printEvery' , 0     ,...
-    'restart'    , -Inf   ...
-    );
-  
-  if exist( 'tfocs', 'file')
-    default_options = pnopt_optimset(...
-      'debug'          , 0          ,... % debug mode 
-      'desc_param'     , 0.0001     ,... % sufficient descent parameter
-      'display'        , 10         ,... % display frequency (<= 0 for no display) 
-      'Lbfgs_mem'      , 50         ,... % L-BFGS memory
-      'max_fun_evals'  , 5000       ,... % max number of function evaluations
-      'max_iter'       , 500        ,... % max number of iterations
-      'method'         , 'Lbfgs'    ,... % method for building Hessian approximation
-      'subprob_solver' , 'tfocs'    ,... % solver for solving subproblems
-      'tfocs_opts'     , tfocs_opts ,... % subproblem solver options
-      'ftol'           , 1e-9       ,... % stopping tolerance on relative change in the objective function 
-      'optim_tol'      , 1e-6       ,... % stopping tolerance on optimality condition
-      'xtol'           , 1e-9        ... % stopping tolerance on solution
-      );
-    
-  else
-    default_options = pnopt_optimset(    ...
-      'debug'          , 0              ,... 
-      'desc_param'     , 0.0001         ,... 
-      'display'        , 10             ,... 
-      'Lbfgs_mem'      , 50             ,... 
-      'max_fun_evals'  , 5000           ,... 
-      'max_iter'       , 500            ,... 
-      'method'         , 'Lbfgs'        ,... 
-      'subprob_solver' , 'sparsa'       ,... 
-      'sparsa_options' , sparsa_options ,...
-      'ftol'           , 1e-9           ,... 
-      'optim_tol'      , 1e-6           ,...
-      'xtol'           , 1e-9            ... 
-      );
-    
-  end
-  
-  if nargin > 3
-    if isfield( options, 'sparsa_options' )
-      options.sparsa_options = pnopt_optimset( sparsa_options, options.sparsa_options );
-    elseif isfield( options, 'tfocs_opts' )
-      options.tfocs_opts = merge_struct( tfocs_opts, options.tfocs_opts );
-    end
+
+tfocs_opts = struct(...
+'alg', 'N83', ...
+'maxIts'     , 500   ,...
+'printEvery' , 0     ,...
+'tol',         1e-7, ...
+'restart'    , -Inf   ...
+);
+
+default_options = pnopt_optimset(...
+'debug'          , 0          ,... % debug mode 
+'desc_param'     , 0.000001     ,... % sufficient descent parameter
+'display'        , 1         ,... % display frequency (<= 0 for no display) 
+'Lbfgs_mem'      , 50         ,... % L-BFGS memory
+'max_fun_evals'  , 500       ,... % max number of function evaluations
+'max_iter'       , 100        ,... % max number of iterations
+'tfocs_opts'     , tfocs_opts ,... % subproblem solver options
+'ftol'           , 1e-9       ,... % stopping tolerance on relative change in the objective function 
+'xtol'           , 1e-6        ... % stopping tolerance on solution
+);
+
+
+if nargin > 3
     options = pnopt_optimset( default_options, options );
-  else
+else
     options = default_options;
-  end
-  
-  method = options.method;
-    
-  % ============ Call solver ============
-  
-  switch method
-    case { 'bfgs', 'Lbfgs' }
-      [ x, f, output ] = pnopt_pqn( smoothF, nonsmoothF, x, options );
-    case 'newton'
-      [ x, f, output ] = pnopt_pn( smoothF, nonsmoothF, x, options );
-    otherwise
-      error( 'Unrecognized method ''%s''.', method ) 
-  end
-  
-  
+end
+
+% ============ Call solver ============
+
+[ x, f, output ] = pnopt_sepqn(smoothF, affineF, dualproxF, x, z0, nonsmoothF, rho, options);
+
+
 function S3 = merge_struct( S1 ,S2 )
 % merge_struct : merge two structures
 %   self-explanatory ^
 % 
-  S3 = S1;
-  S3_names = fieldnames( S2 );
-  for k = 1:length( S3_names )
+S3 = S1;
+S3_names = fieldnames( S2 );
+for k = 1:length( S3_names )
     if isfield( S3, S3_names{k} )
-      if isstruct( S3.(S3_names{k}) )
-        S3.(S3_names{k}) = merge_struct( S3.(S3_names{k}),...
-          S2.(S3_names{k}) );
+        if isstruct( S3.(S3_names{k}) )
+            S3.(S3_names{k}) = merge_struct( S3.(S3_names{k}),...
+            S2.(S3_names{k}) );
       else
-        S3.(S3_names{k}) = S2.(S3_names{k});
+          S3.(S3_names{k}) = S2.(S3_names{k});
       end
-    else
+  else
       S3.(S3_names{k}) = S2.(S3_names{k});
-    end
+  end
 end
-  
+
   
